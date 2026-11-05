@@ -2,6 +2,15 @@
 
 Entries are per plugin, headed `## <plugin> v<version> - YYYY-MM-DD`, grouped into New Features, Improvements, Bug Fixes, Other.
 
+## debugging v0.1.1 - 2026-11-05
+
+### Bug Fixes
+
+- `rca` stopped to ask what to do next when the next tests were safe, and listed the options as plain text: it now runs safe tests without asking, in parallel when independent, and asks only before touching production or shared systems, when it needs something only the user has, or at a real fork, always with a selectable question
+- `rca` no longer tells the investigator to test strictly one hypothesis at a time, which conflicted with parallel investigation
+- `rca` asks before any access to production; a grant holds for the current session only and is never read back from the log
+- `rca` treats production as read-only even with access granted: no changes, nothing created (test messages, debug containers, jobs), nothing destructive; tests that need a production change are described and left to the user. Agent briefs carry the same restriction
+
 ## debugging v0.1.0 - 2026-11-05
 
 ### New Features

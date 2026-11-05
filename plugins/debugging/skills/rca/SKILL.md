@@ -40,11 +40,26 @@ Loop until a hypothesis passes the confirmation gate (section 3):
 2. **Form hypotheses.** First, account for what the reporter has already ruled out. Someone escalating a problem has usually looked at the obvious: what they can see in their own tools (restart counts, their recent deploys, dashboards, the error itself), and the way they describe it is evidence too. "Still failing" from the person who owns the service is different from "it keeps crashing". A cause the reporter could have confirmed in seconds is not a leading candidate: check it in seconds yourself and move on, or put it last. Log what the reporter checked under Problem.
 
    Then form at least two competing hypotheses before testing any: a single hypothesis is a conclusion in disguise. Draw them from more than one area: the code itself, configuration and environment differences, architecture and design limits (coupling, capacity, scaling), external dependencies (other services, libraries, network), and process (deploy order, missing validation). Each states what must be true if it is the cause, what would prove it wrong, and how to check that cheaply.
-3. **Test one at a time.** Prefer the test that eliminates the most hypotheses, and design it so it can fail. Run it, read the actual output.
+3. **Test.** One test per hypothesis at a time, designed so it can fail; prefer tests that eliminate the most hypotheses. Tests of different hypotheses that are independent and read-only run at the same time (see Parallel investigation). Read the actual output.
 4. **Log it** (see section 4) before taking the next step.
 5. **Go deeper.** A confirmed cause that is itself explained by something else is not the root. Keep asking why, typically down this ladder: the immediate cause (the failing operation), the mechanism in the code or config, the system condition that enabled it, the design decision behind that, and finally why the process let it ship unnoticed (no test, no alert, no review of that path). Stop when the next answer is outside the system's control or is a deliberate decision. Five levels is typical, not a rule, and every level needs the same evidence as the first.
 
 A hypothesis is in one of four states: `open` (untested), `supported` (evidence is consistent with it, but no test that could have disproved it has passed yet), `confirmed` (passed the gate), `rejected`. Evidence that merely fits makes a hypothesis `supported`, never `confirmed`.
+
+### Asking the user
+
+Keep going without asking while the next steps are safe: reading code, library source, local logs and files, running local tests and builds. Do not end a turn with "what would you like me to do next?" when the next tests are obvious and safe: run them, in parallel when independent.
+
+Stop and ask only when:
+
+- **The next action touches production.** Ask before any access to a production cluster or system, read-only included, unless the user allowed it earlier in this same session. A permission never outlives the session: a resumed session or a new session asks again, whatever the log says. Note each grant in the timeline as history, never as a standing permission.
+- **The next action changes a shared non-production environment** (staging, a shared dev cluster or database).
+- **Only the user has what is needed:** logs or dashboards you cannot reach, access, context about the system or the report.
+- **The direction forks** and the evidence gives no clear winner.
+
+**Production is read-only, always, even with access granted.** Allowed: reading state, logs, events and metrics (`kubectl get`, `describe`, `logs`, `top`, `events`; `port-forward` to read a metrics or debug endpoint; read-only queries). Never, whatever the user grants for access: changing anything (`apply`, `edit`, `patch`, `scale`, `rollout restart`, `label`, `annotate`, `delete`, config or feature flag changes), creating anything (`run`, `debug` ephemeral containers, jobs, test messages, test records, load), or anything destructive (killing pods or processes, purging queues, deleting data). `exec` only for a command that reads, never one that writes or signals. When a command's effect is unclear, do not run it: find out, or ask. When a test needs a change in production, do not do it: describe the test and why it is needed, and leave it to the user.
+
+Ask with the AskUserQuestion tool, never as a question in plain text followed by a list. Give 2-4 concrete options, the recommended one first and marked "(Recommended)", each saying what it does and which hypotheses it can confirm or reject. Put independent questions into one call. Before asking, run every safe test that does not depend on the answer.
 
 ### Parallel investigation
 
@@ -56,9 +71,9 @@ When there are several tasks that do not depend on each other's results, spawn o
 
 Rules:
 
-1. **Isolated tasks only.** Each agent gets one narrow question and must not need another agent's answer. Anything that changes shared state runs in sequence in the main session: checking out revisions (bisect), editing config, restarting services, adding instrumentation to the same code. An experiment that has to modify code may run in its own git worktree (`isolation: "worktree"`).
+1. **Isolated tasks only.** Each agent gets one narrow question and must not need another agent's answer. Anything that changes shared state runs in sequence in the main session: checking out revisions (bisect), editing local config, restarting local services, adding instrumentation to the same code. Production is never changed at all (see Asking the user). An experiment that has to modify code may run in its own git worktree (`isolation: "worktree"`).
 2. **Up to 4 agents per round.** More costs more than it adds; split further only when a round returns.
-3. **A self-contained brief without your preference.** The agent knows only what the brief says. Include: the log path to read for context, the one question, what would prove or disprove it, what is already ruled out and must not be retried, the path of its task file (rule 5), and where to save output longer than about 20 lines (`<case>/evidence/<task-slug>-<name>`). Do not include which hypothesis you favor or your reasoning toward it: an agent handed a conclusion tends to return it confirmed. Ask it to try to break the hypothesis, not to support it.
+3. **A self-contained brief without your preference.** The agent knows only what the brief says. Include: the log path to read for context, the one question, what would prove or disprove it, what is already ruled out and must not be retried, whether it may access production (only if the user allowed it in this session) and that such access is read-only as defined in Asking the user, the path of its task file (rule 5), and where to save output longer than about 20 lines (`<case>/evidence/<task-slug>-<name>`). Do not include which hypothesis you favor or your reasoning toward it: an agent handed a conclusion tends to return it confirmed. Ask it to try to break the hypothesis, not to support it.
 4. **A fixed answer format.** Ask each agent to write its report in this format and return the same text: verdict (`supported`, `rejected` or `inconclusive`); verified facts, each with evidence (`file:line`, a command and the relevant lines of its output); inferences, labeled as such and kept apart from facts; what it could not check and why; new questions.
 5. **Every task is saved to a file, before and after.** Results that exist only in the conversation are lost on compaction, and agents may finish after it. So:
    - Before spawning, the main session writes the brief to `<case>/agents/<YYYYMMDD-HHMM>-<task-slug>.md` under a `## Brief` heading, and adds a timeline entry `dispatched <task-slug> -> agents/<file>`.
