@@ -15,7 +15,7 @@ Personal Claude Code hooks, skills, commands and agents, organized as a marketpl
 ## Structure
 
 - `.claude-plugin/marketplace.json` - marketplace catalog listing all plugins
-- `plugins/<name>/` - one independent plugin per directory:
+- `plugins/<name>/` - one independent plugin per directory (currently `debugging`: `rca` and `bisect` skills, open RCA reminder hook):
   - `.claude-plugin/plugin.json` - plugin manifest (name, description, version)
   - `skills/<skill>/SKILL.md` - skills, with optional `scripts/` and `references/` next to them
   - `commands/<command>.md` - slash commands

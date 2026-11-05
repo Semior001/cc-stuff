@@ -3,5 +3,11 @@
   "owner": {
     "name": "Semior001"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "debugging",
+      "source": "./plugins/debugging",
+      "description": "Root cause analysis with a persistent investigation log in docs/rca/, and regression bisecting"
+    }
+  ]
 }

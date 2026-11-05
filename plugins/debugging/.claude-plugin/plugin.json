@@ -1,0 +1,11 @@
+{
+  "name": "debugging",
+  "description": "Root cause analysis with a persistent investigation log in docs/rca/, and regression bisecting",
+  "version": "0.1.0",
+  "author": {
+    "name": "Semior001"
+  },
+  "homepage": "https://github.com/Semior001/cc-stuff",
+  "repository": "https://github.com/Semior001/cc-stuff",
+  "license": "MIT"
+}
