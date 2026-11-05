@@ -73,7 +73,16 @@ Rules:
 
 1. **Isolated tasks only.** Each agent gets one narrow question and must not need another agent's answer. Anything that changes shared state runs in sequence in the main session: checking out revisions (bisect), editing local config, restarting local services, adding instrumentation to the same code. Production is never changed at all (see Asking the user). An experiment that has to modify code may run in its own git worktree (`isolation: "worktree"`).
 2. **Up to 4 agents per round.** More costs more than it adds; split further only when a round returns.
-3. **A self-contained brief without your preference.** The agent knows only what the brief says. Include: the log path to read for context, the one question, what would prove or disprove it, what is already ruled out and must not be retried, whether it may access production (only if the user allowed it in this session) and that such access is read-only as defined in Asking the user, the path of its task file (rule 5), and where to save output longer than about 20 lines (`<case>/evidence/<task-slug>-<name>`). Do not include which hypothesis you favor or your reasoning toward it: an agent handed a conclusion tends to return it confirmed. Ask it to try to break the hypothesis, not to support it.
+3. **A self-contained brief without your preference.** The agent knows only what the brief says, and it does not get the log: the log carries hypothesis states, the reasoning in the timeline and other agents' reports, all of which steer it toward the current favorite. Write the context into the brief instead:
+   - the problem as observed: symptom, exact error text, environment;
+   - only the Known facts relevant to its question, as plain facts with their evidence;
+   - the one question, phrased neutrally ("does cancellation from the caller reach this send?", not "confirm that it does"), with what would answer it either way;
+   - what not to retry, as actions already taken and their results, not as conclusions about hypotheses;
+   - whether it may access production (only if the user allowed it in this session) and that such access is read-only as defined in Asking the user;
+   - the path of its task file (rule 5), and where to save output longer than about 20 lines (`<case>/evidence/<task-slug>-<name>`);
+   - that it must not read anything under `docs/rca/` other than its own task file.
+
+   Never mention other hypotheses, their states, which one you favor, or your reasoning toward it: an agent handed a conclusion tends to return it confirmed. Ask it to try to break the idea it is testing, not to support it.
 4. **A fixed answer format.** Ask each agent to write its report in this format and return the same text: verdict (`supported`, `rejected` or `inconclusive`); verified facts, each with evidence (`file:line`, a command and the relevant lines of its output); inferences, labeled as such and kept apart from facts; what it could not check and why; new questions.
 5. **Every task is saved to a file, before and after.** Results that exist only in the conversation are lost on compaction, and agents may finish after it. So:
    - Before spawning, the main session writes the brief to `<case>/agents/<YYYYMMDD-HHMM>-<task-slug>.md` under a `## Brief` heading, and adds a timeline entry `dispatched <task-slug> -> agents/<file>`.
@@ -92,7 +101,7 @@ The most common failure of an investigation is stopping at the first explanation
 2. **It explains everything.** It accounts for every entry in Known facts: when it happens and when it does not, where it happens and where not, frequency, timing. Count the variants of the symptom (each distinct error message, status code, failure mode) and check the hypothesis accounts for each in proportion: a cause that explains a handful of hundreds of errors is a side note, not the cause. One unexplained fact means it is not confirmed; add that fact as an open question.
 3. **A test that could have failed, passed.** A prediction derived from the hypothesis was checked and held. The strongest form is control: introducing the cause produces the symptom, and removing it alone makes the symptom go away.
 4. **Alternatives were settled.** Every other hypothesis is either in Ruled out with evidence, not dismissed as "less likely", or confirmed through this same gate as a contributing cause. Problems often have more than one cause; the root cause section then lists each with its share of the symptom.
-5. **Adversarial check.** Spawn a fresh subagent, with a task file like any other agent, given only the log path and this gate, asking it to find a gap: an unexplained fact, an unverified link, an untested alternative. Do not pass it your reasoning or your preferred answer. Address every gap it finds, or record why it does not apply.
+5. **Adversarial check.** Spawn a fresh subagent, with a task file like any other agent but not the log: its brief holds the problem, every Known fact with its evidence, the claimed cause chain, Ruled out with its evidence, and this gate. Ask it to find a gap: an unexplained fact, an unverified link, an untested alternative. Do not pass it your reasoning or your preferred answer. Address every gap it finds, or record why it does not apply.
 
 Traps that do not count as confirmation:
 

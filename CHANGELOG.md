@@ -2,6 +2,12 @@
 
 Entries are per plugin, headed `## <plugin> v<version> - YYYY-MM-DD`, grouped into New Features, Improvements, Bug Fixes, Other.
 
+## debugging v0.1.2 - 2026-11-05
+
+### Bug Fixes
+
+- `rca` agents were briefed with the log path, so they read the hypothesis states, the timeline reasoning and other agents' reports and leaned toward the current favorite. Briefs now carry only the problem, the facts relevant to the question, a neutrally phrased question and what not to retry, and agents are told not to read `docs/rca/` beyond their own task file. The adversarial check gets the claimed chain and facts in its brief instead of the log
+
 ## debugging v0.1.1 - 2026-11-05
 
 ### Bug Fixes
