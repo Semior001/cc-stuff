@@ -2,6 +2,12 @@
 
 Entries are per plugin, headed `## <plugin> v<version> - YYYY-MM-DD`, grouped into New Features, Improvements, Bug Fixes, Other.
 
+## debugging v0.1.3 - 2026-11-05
+
+### Improvements
+
+- `rca` main session only orchestrates: every check, including the first fact gathering, single quick checks, prior art search and bisect, runs as an agent task, so investigation output no longer fills the main context. The main session reads only the log, task files and the few lines agents cite as key evidence
+
 ## debugging v0.1.2 - 2026-11-05
 
 ### Bug Fixes

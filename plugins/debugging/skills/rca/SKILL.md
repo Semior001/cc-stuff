@@ -27,28 +27,30 @@ Everything under `docs/rca/` is private to the people and agents working on the 
 
 1. Make sure `docs/rca/.gitignore` exists and contains `*`; create it if not. Then check `git ls-files docs/rca`: if it lists anything, those files were committed before and the ignore file does not hide them. Tell the user which files are tracked and leave untracking them to the user; do not run `git rm` yourself.
 2. List the case folders directly under `docs/rca/` (not `closed/`): those are the investigations in progress.
-3. If one matches the problem, read its `README.md` fully and continue from it. Then check `<case>/agents/` for reports the timeline does not mark as processed, and process them (see Parallel investigation) before anything else: they hold results that arrived after the last log update. Do not repeat anything listed under Ruled out or Dead ends unless new evidence justifies it, and say what that evidence is.
+3. If one matches the problem, read its `README.md` fully and continue from it. Then check `<case>/agents/` for reports the timeline does not mark as processed, and process them (see Agents) before anything else: they hold results that arrived after the last log update. Do not repeat anything listed under Ruled out or Dead ends unless new evidence justifies it, and say what that evidence is.
 4. If none matches, create the case folder `docs/rca/<YYYYMMDD>-<slug>/` (date from `date +%Y%m%d`, slug of 2-5 kebab-case words naming the symptom, not a suspected cause) and its `README.md` from the template in `${CLAUDE_PLUGIN_ROOT}/skills/rca/references/log-template.md`. Fill Problem and Environment from what the user gave; mark gaps as unknown.
-5. Search the closed cases in `docs/rca/closed/` for prior art, and the other open ones too: grep for the exact error text, the components involved and key symptoms. Where an earlier log matches, read its Root cause, Insights and Dead ends, and carry over what applies: as a Known fact if it still verifiably holds, otherwise as a hypothesis. Cite the earlier log either way.
+5. Search the closed cases in `docs/rca/closed/` for prior art, and the other open ones too, through an agent (see Agents): it greps them for the exact error text, the components involved and key symptoms, and returns the matching cases with their Root cause, Insights and Dead ends. This is the one agent allowed to read `docs/rca/`. Carry over what applies: as a Known fact if it still verifiably holds, otherwise as a hypothesis. Cite the earlier log either way.
 6. Tell the user the log path.
 
 ## 2. Investigate
 
+The main session orchestrates and agents investigate. The main session frames the problem, forms hypotheses, writes briefs, processes reports, keeps the log, talks to the user and runs the confirmation gate. It does not check anything itself: no reading code or library source, no grepping logs, no running tests, builds or bisects, not even a "quick look". Each of those fills the main context with output that is needed once, and a context that fills up gets compacted and loses the thread. Every check, however small, is an agent task (see Agents). The main session reads only the case log, agent task files and the few lines an agent cites as key evidence (Agents, rule 7).
+
 Loop until a hypothesis passes the confirmation gate (section 3):
 
-1. **Gather facts.** Read the code, logs, configs and history (`git log`, `git blame`, `git log -S '<code>'` to find when a line appeared). Reproduce the problem if at all possible. Pin down the shape of the symptom before explaining it: continuous or episodic, since when, how often, on which instances and which not, which component reports it and in which direction (inbound or outbound, caller or callee), and whether anything restarted, deployed or changed around its start. These are facts to log, and every later hypothesis must fit them. When the problem is a regression and a good revision is known, `/debugging:bisect` finds the commit that introduced it.
-2. **Form hypotheses.** First, account for what the reporter has already ruled out. Someone escalating a problem has usually looked at the obvious: what they can see in their own tools (restart counts, their recent deploys, dashboards, the error itself), and the way they describe it is evidence too. "Still failing" from the person who owns the service is different from "it keeps crashing". A cause the reporter could have confirmed in seconds is not a leading candidate: check it in seconds yourself and move on, or put it last. Log what the reporter checked under Problem.
+1. **Gather facts, through agents.** The first round of agents reads the code, logs, configs and history (`git log`, `git blame`, `git log -S '<code>'` to find when a line appeared). Reproduce the problem if at all possible. Pin down the shape of the symptom before explaining it: continuous or episodic, since when, how often, on which instances and which not, which component reports it and in which direction (inbound or outbound, caller or callee), and whether anything restarted, deployed or changed around its start. These are facts to log, and every later hypothesis must fit them. When the problem is a regression and a good revision is known, an agent following `${CLAUDE_PLUGIN_ROOT}/skills/bisect/SKILL.md` finds the commit that introduced it.
+2. **Form hypotheses.** First, account for what the reporter has already ruled out. Someone escalating a problem has usually looked at the obvious: what they can see in their own tools (restart counts, their recent deploys, dashboards, the error itself), and the way they describe it is evidence too. "Still failing" from the person who owns the service is different from "it keeps crashing". A cause the reporter could have confirmed in seconds is not a leading candidate: give its quick check to an agent alongside the real tests, or put it last. Log what the reporter checked under Problem.
 
    Then form at least two competing hypotheses before testing any: a single hypothesis is a conclusion in disguise. Draw them from more than one area: the code itself, configuration and environment differences, architecture and design limits (coupling, capacity, scaling), external dependencies (other services, libraries, network), and process (deploy order, missing validation). Each states what must be true if it is the cause, what would prove it wrong, and how to check that cheaply.
-3. **Test.** One test per hypothesis at a time, designed so it can fail; prefer tests that eliminate the most hypotheses. Tests of different hypotheses that are independent and read-only run at the same time (see Parallel investigation). Read the actual output.
-4. **Log it** (see section 4) before taking the next step.
+3. **Test, through agents.** One test per hypothesis at a time, designed so it can fail; prefer tests that eliminate the most hypotheses. Tests of different hypotheses that are independent run as parallel agents in one round.
+4. **Log it** (see section 4): process each report and update the log before dispatching the next round.
 5. **Go deeper.** A confirmed cause that is itself explained by something else is not the root. Keep asking why, typically down this ladder: the immediate cause (the failing operation), the mechanism in the code or config, the system condition that enabled it, the design decision behind that, and finally why the process let it ship unnoticed (no test, no alert, no review of that path). Stop when the next answer is outside the system's control or is a deliberate decision. Five levels is typical, not a rule, and every level needs the same evidence as the first.
 
 A hypothesis is in one of four states: `open` (untested), `supported` (evidence is consistent with it, but no test that could have disproved it has passed yet), `confirmed` (passed the gate), `rejected`. Evidence that merely fits makes a hypothesis `supported`, never `confirmed`.
 
 ### Asking the user
 
-Keep going without asking while the next steps are safe: reading code, library source, local logs and files, running local tests and builds. Do not end a turn with "what would you like me to do next?" when the next tests are obvious and safe: run them, in parallel when independent.
+Keep going without asking while the next steps are safe: reading code, library source, local logs and files, running local tests and builds. Do not end a turn with "what would you like me to do next?" when the next tests are obvious and safe: dispatch them.
 
 Stop and ask only when:
 
@@ -59,11 +61,11 @@ Stop and ask only when:
 
 **Production is read-only, always, even with access granted.** Allowed: reading state, logs, events and metrics (`kubectl get`, `describe`, `logs`, `top`, `events`; `port-forward` to read a metrics or debug endpoint; read-only queries). Never, whatever the user grants for access: changing anything (`apply`, `edit`, `patch`, `scale`, `rollout restart`, `label`, `annotate`, `delete`, config or feature flag changes), creating anything (`run`, `debug` ephemeral containers, jobs, test messages, test records, load), or anything destructive (killing pods or processes, purging queues, deleting data). `exec` only for a command that reads, never one that writes or signals. When a command's effect is unclear, do not run it: find out, or ask. When a test needs a change in production, do not do it: describe the test and why it is needed, and leave it to the user.
 
-Ask with the AskUserQuestion tool, never as a question in plain text followed by a list. Give 2-4 concrete options, the recommended one first and marked "(Recommended)", each saying what it does and which hypotheses it can confirm or reject. Put independent questions into one call. Before asking, run every safe test that does not depend on the answer.
+Ask with the AskUserQuestion tool, never as a question in plain text followed by a list. Give 2-4 concrete options, the recommended one first and marked "(Recommended)", each saying what it does and which hypotheses it can confirm or reject. Put independent questions into one call. Before asking, dispatch every safe test that does not depend on the answer.
 
-### Parallel investigation
+### Agents
 
-When there are several tasks that do not depend on each other's results, spawn one agent per task in a single message instead of working through them one by one. Typical tasks:
+Every check is an agent task, even a single one. When several tasks do not depend on each other's results, spawn them in a single message. Typical tasks:
 
 - **Test one hypothesis:** look for the evidence that would prove it wrong, and for what is needed to complete its chain.
 - **Verify one link:** "does cancellation from the caller reach this send?" Read the code path, library source included, and report what it does.
@@ -71,7 +73,7 @@ When there are several tasks that do not depend on each other's results, spawn o
 
 Rules:
 
-1. **Isolated tasks only.** Each agent gets one narrow question and must not need another agent's answer. Anything that changes shared state runs in sequence in the main session: checking out revisions (bisect), editing local config, restarting local services, adding instrumentation to the same code. Production is never changed at all (see Asking the user). An experiment that has to modify code may run in its own git worktree (`isolation: "worktree"`).
+1. **One narrow question per agent.** It must not need another agent's answer. A task that changes local shared state (checking out revisions for a bisect, editing local config, restarting local services, adding instrumentation) runs as the only agent in its round, or in its own git worktree (`isolation: "worktree"`) alongside others. Production is never changed at all (see Asking the user).
 2. **Up to 4 agents per round.** More costs more than it adds; split further only when a round returns.
 3. **A self-contained brief without your preference.** The agent knows only what the brief says, and it does not get the log: the log carries hypothesis states, the reasoning in the timeline and other agents' reports, all of which steer it toward the current favorite. Write the context into the brief instead:
    - the problem as observed: symptom, exact error text, environment;
@@ -89,9 +91,9 @@ Rules:
    - The brief tells the agent to append its report to that file under a `## Report` heading before returning. A task file without `## Report` is a task that never finished: rerun it or record it as a dead end.
    - Once a report has been processed (rule 6 and the log updated), add a timeline entry `processed <task-slug>: <verdict>`. A report without that entry is unprocessed, and resuming picks it up.
 6. **Agents do not edit the log.** The main session is its only writer, so parallel agents never overwrite each other; each agent writes only its own task file and evidence files.
-7. **Agent results are claims.** Before moving a hypothesis to `rejected` or counting a link as verified, re-read the key evidence the agent cites (the lines, the output). An agent's verdict carries no more weight than its evidence. An `inconclusive` result goes into Open questions with what blocked it.
+7. **Agent results are claims.** Before moving a hypothesis to `rejected` or counting a link as verified, re-read the key evidence the agent cites: only the cited lines and output, a few per report. When checking a report needs more than that, dispatch a verification agent instead of investigating in the main session. An agent's verdict carries no more weight than its evidence. An `inconclusive` result goes into Open questions with what blocked it.
 
-Do not change production code to fix the problem until the root cause is confirmed, unless the user asks. Temporary instrumentation (extra logging, a failing test, a debug print) is fine; record it in the timeline and remove it at the end.
+Do not change production code to fix the problem until the root cause is confirmed, unless the user asks. Temporary instrumentation (extra logging, a failing test, a debug print) added by an agent is fine; record it in the timeline and have an agent remove it at the end.
 
 ## 3. Confirmation gate
 
