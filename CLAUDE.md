@@ -29,6 +29,7 @@ Personal Claude Code hooks, skills, commands and agents, organized as a marketpl
 - Scripts referenced from skills, commands and hooks use `${CLAUDE_PLUGIN_ROOT}` for paths: plugins are copied to a cache location on install, so relative and absolute paths break.
 - **Versioning** - each plugin has its own semver `version` in `plugins/<name>/.claude-plugin/plugin.json`, bumped independently: patch for fixes, minor for new components, major for breaking changes. Any change to shipped plugin content (skills, commands, agents, hooks, scripts, references) is a release and needs a bump.
 - **Changelog** - every version bump adds an entry to `CHANGELOG.md` in the same change, headed `## <plugin> v<version> - YYYY-MM-DD`.
+- **Tags** - the commit that bumps a plugin version gets an annotated tag `<plugin>/v<version>` (e.g. `debugging/v0.1.2`), message `<plugin> v<version>`.
 - **Cross-references** - refer to skills with the plugin prefix: `/<plugin>:<skill>`.
 
 ## Local Development
