@@ -2,6 +2,12 @@
 
 Entries are per plugin, headed `## <plugin> v<version> - YYYY-MM-DD`, grouped into New Features, Improvements, Bug Fixes, Other.
 
+## debugging v0.1.6 - 2026-11-06
+
+### New Features
+
+- `rca` suggests ways to make the problem go away: mitigations as soon as the impact is known, without waiting for the root cause, each with what it reduces, its risk, the evidence it would destroy and how to tell it worked; two or three fix options from different depths of the cause chain once the cause is confirmed or the case paused, each with the link it breaks, the change, effort and risk, and verification, presented as a choice with a recommendation; and prevention suggestions from the process level. Production mitigations are described for the user to run, never run by the investigator. The log template gets Mitigation, Fix and Prevention sections
+
 ## debugging v0.1.5 - 2026-11-06
 
 ### New Features

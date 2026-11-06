@@ -61,7 +61,7 @@ If either holds, do not stop on your own: an investigator talking itself out of 
 
 1. Record each remaining question in Open questions with why it stays open and what evidence would reopen it.
 2. Root cause says plainly that it is not confirmed, and lists the remaining candidates with their states. Never present a paused case's leading hypothesis as the cause.
-3. Fix lists the changes, says they were chosen without a confirmed cause, and gives a prediction for each: what should change after it ships (an error rate, a metric, a log line) if it addresses the problem. A failed prediction reopens the case.
+3. Prepare fix options as in section 5, marked as chosen without a confirmed cause, each with a prediction: what should change after it ships (an error rate, a metric, a log line) if it addresses the problem. A failed prediction reopens the case.
 4. Set `Status: paused`. The case folder stays directly under `docs/rca/`; resuming it sets `Status: open` again.
 
 ### Asking the user
@@ -110,7 +110,7 @@ Rules:
 6. **Agents do not edit the log.** The main session is its only writer, so parallel agents never overwrite each other; each agent writes only its own task file and evidence files.
 7. **Agent results are claims.** Before moving a hypothesis to `rejected` or counting a link as verified, re-read the key evidence the agent cites: only the cited lines and output, a few per report. When checking a report needs more than that, dispatch a verification agent instead of investigating in the main session. An agent's verdict carries no more weight than its evidence. An `inconclusive` result goes into Open questions with what blocked it.
 
-Do not change production code to fix the problem until the root cause is confirmed, unless the user asks. Temporary instrumentation (extra logging, a failing test, a debug print) added by an agent is fine; record it in the timeline and have an agent remove it at the end.
+Do not change production code to fix the problem until the root cause is confirmed, unless the user asks. Mitigation is different and does not wait for the root cause: see section 5. Temporary instrumentation (extra logging, a failing test, a debug print) added by an agent is fine; record it in the timeline and have an agent remove it at the end.
 
 ## 3. Confirmation gate
 
@@ -142,7 +142,7 @@ Until the gate passes, never tell the user "the cause is X". Report the leading 
 
 Write to the log immediately after every finding: a new fact, a hypothesis formed or changing state, a dead end, an insight, a new question. Never batch several findings into one write at the end.
 
-- **State sections** (Problem through Fix) describe what is known now: rewrite them as knowledge changes.
+- **State sections** (Problem through Prevention) describe what is known now: rewrite them as knowledge changes.
 - **Timeline** is append-only and stays the last section of the log. Add to it only with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/append-timeline.sh <case>/README.md "<action> -> <outcome>"`, one call per entry. The script appends to the end of the file and adds the timestamp, so no earlier entry can be overwritten. Never write timeline entries with Edit or Write, and never put two entries in one call. Nothing goes below Timeline: new hypotheses, facts and other sections go in their own sections above it. If the script refuses, fix the log structure (Timeline must be last) and retry; do not work around it. The last entry's timestamp is when the log was last updated.
 - **Facts vs assumptions.** Known facts holds only what was verified, each with its evidence (`file:line`, the command and the relevant part of its output, a log line). Anything unverified is a hypothesis or an open question.
 - **Rejected hypotheses move to Ruled out** with the evidence that rejected them. Never delete them: they keep the next session from retrying them.
@@ -152,15 +152,37 @@ Write to the log immediately after every finding: a new fact, a hypothesis forme
 - **One write to the log at a time.** Never issue two tool calls that write the log in the same message (an Edit and a timeline append, or two Edits): an Edit that reads the file before a parallel write lands and writes after it silently drops that write.
 - Keep entries short and concrete. Quote exact error text; do not paraphrase it.
 
-## 5. Conclude
+## 5. Mitigate and fix
+
+The investigation exists to make the problem go away. Suggest ways to do that at two points, and record them in the log's Mitigation, Fix and Prevention sections.
+
+**Mitigation, as soon as the impact is known.** If the problem is hurting users or data now, do not wait for the root cause. Suggest ways to reduce the impact that do not depend on knowing it: rolling back a suspect change, scaling up, raising a limit or a timeout, turning off a feature, rate limiting, failing over, retrying or replaying lost work. For each, say what it reduces, what it costs or risks, and how to tell it worked. Two warnings go with every suggestion:
+
+- A mitigation can destroy evidence: a restart clears in-memory state, a rollback removes the reproduction, scaling hides a capacity problem. Name what each one would destroy and dispatch an agent to capture that first (logs, metrics, dumps, current config) if the user agrees.
+- Production is read-only for the investigation (see Asking the user): describe the steps or commands for the user to run; never run them.
+
+A mitigation that makes the symptom go away is not evidence of the cause (see the traps in section 3). Record when it was applied, because it changes what later observations mean.
+
+**Fix options, once the cause is confirmed or the case is paused.** Prepare two or three options rather than one, dispatching an agent when designing them needs reading code. Draw them from different depths of the cause chain: a narrow fix at the immediate cause, a fix at the mechanism, a change at the design level. For each option give:
+
+- which link of the cause chain it breaks, and so why it addresses the cause rather than the symptom;
+- the change in concrete terms: files, config keys, behavior;
+- effort and risk: what else it touches, what could regress;
+- how to verify it: the reproduction that must stop failing, the test to add, the metric or log line to watch after it ships.
+
+Recommend one and say why. Present the options with the AskUserQuestion tool, the recommended one first.
+
+**Prevention.** From the deepest level of the cause chain, the process level, suggest what would have caught this earlier or stopped it shipping: a test, an alert, a validation, a review rule, a documentation fix. These are suggestions for the user, not changes to make.
+
+## 6. Conclude
 
 When a hypothesis passes the confirmation gate:
 
 1. Fill Root cause with the chain from symptom to fundamental cause, evidence at every step, and the Confirmation checklist with the evidence for each point.
 2. Present the root cause, its evidence and the checklist to the user, and ask them to accept it. Any doubt they raise goes back into the investigation loop as an open question; the log stays `open` until they accept.
-3. Fill Fix with the proposed fix. If the user asks to apply it, apply it, verify it against the original reproduction, and record how it was verified.
+3. Prepare fix options and prevention suggestions (section 5). If the user picks an option and asks to apply it, apply it outside production, verify it against the original reproduction, and record how it was verified.
 4. Remove temporary instrumentation and note it in the timeline.
 5. Set `Status: resolved`. If the user stops the investigation without a conclusion, set `Status: abandoned` and make sure Open questions says where to pick up. Either way, move the case folder into `docs/rca/closed/` (`mkdir -p` it first). Resuming an abandoned case moves it back and sets `Status: open`.
-6. Report to the user: the root cause in one or two sentences, the fix, and the log path.
+6. Report to the user: the root cause in one or two sentences, the fix chosen or the options with the recommendation, the prevention suggestions, and the log path.
 
 Never stage or commit anything under `docs/rca/`, and do not mention case files in commit messages, PR descriptions or code comments: they are for the investigators only.

@@ -70,9 +70,28 @@ Every point needs evidence; an unchecked point means the root cause is not confi
 - [ ] Adversarial check by a fresh subagent: gaps found and how each was addressed - <summary>
 - [ ] Accepted by the user
 
+## Mitigation
+
+Ways to reduce the impact before the root cause is known. For each: what it reduces, cost or risk, what evidence it would destroy, how to tell it worked, and whether and when it was applied.
+
+- <mitigation> - <reduces> - <risk> - <destroys> - <check> - <suggested | applied YYYY-MM-DD HH:MM by whom>
+
 ## Fix
 
-Proposed or applied fix, how it was verified, follow-ups.
+Two or three options from different depths of the cause chain, the recommended one first.
+
+### Option 1: <name> (recommended)
+
+- **Breaks:** which link of the cause chain
+- **Change:** files, config keys, behavior
+- **Effort and risk:** what else it touches, what could regress
+- **Verify:** reproduction, test to add, metric or log line to watch after it ships
+
+Chosen option, how it was applied and verified, follow-ups.
+
+## Prevention
+
+What would have caught this earlier or stopped it shipping: a test, an alert, a validation, a review rule, a documentation fix.
 
 ## Timeline
 
