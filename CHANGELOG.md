@@ -2,6 +2,12 @@
 
 Entries are per plugin, headed `## <plugin> v<version> - YYYY-MM-DD`, grouped into New Features, Improvements, Bug Fixes, Other.
 
+## debugging v0.1.5 - 2026-11-06
+
+### New Features
+
+- `rca` `paused` status for investigations where further work has no practical leverage: the same fix applies whatever the remaining answers, or the evidence is out of reach. The investigator only proposes a pause and the user decides; a paused case records why each question stays open and what would reopen it, never presents its leading hypothesis as the cause, and ships fixes with a prediction whose failure reopens the case
+
 ## debugging v0.1.4 - 2026-11-06
 
 ### Bug Fixes

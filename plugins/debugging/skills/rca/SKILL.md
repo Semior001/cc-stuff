@@ -11,7 +11,7 @@ Each investigation is one folder, so everything about a case stays together and 
 
 ```
 docs/rca/
-  20261105-export-context-canceled/   # in progress
+  20261105-export-context-canceled/   # open or paused
     README.md                         # the log
     evidence/                         # outputs too long for the log
     agents/                           # one file per agent task: brief and report
@@ -23,11 +23,13 @@ The log is `README.md` so that it is the first thing seen when the folder is ope
 
 Everything under `docs/rca/` is private to the people and agents working on the project and never enters version control. A `docs/rca/.gitignore` containing the single line `*` ignores the whole folder, itself included, without touching the project's own `.gitignore`.
 
+A case is in one of four states, given by the `Status:` line of its log: `open` (being investigated), `paused` (stopped with the user's agreement, see Pausing), `resolved` (root cause confirmed), `abandoned` (stopped by the user without a conclusion). Open and paused cases sit directly under `docs/rca/`, resolved and abandoned ones under `docs/rca/closed/`.
+
 ## 1. Start or resume
 
 1. Make sure `docs/rca/.gitignore` exists and contains `*`; create it if not. Then check `git ls-files docs/rca`: if it lists anything, those files were committed before and the ignore file does not hide them. Tell the user which files are tracked and leave untracking them to the user; do not run `git rm` yourself.
-2. List the case folders directly under `docs/rca/` (not `closed/`): those are the investigations in progress.
-3. If one matches the problem, read its `README.md` fully and continue from it. Then check `<case>/agents/` for reports the timeline does not mark as processed, and process them (see Agents) before anything else: they hold results that arrived after the last log update. Do not repeat anything listed under Ruled out or Dead ends unless new evidence justifies it, and say what that evidence is.
+2. List the case folders directly under `docs/rca/` (not `closed/`): those are the open and paused investigations.
+3. If one matches the problem, read its `README.md` fully and continue from it; a paused case gets `Status: open` again, with the new evidence or reason for resuming as a timeline entry. Then check `<case>/agents/` for reports the timeline does not mark as processed, and process them (see Agents) before anything else: they hold results that arrived after the last log update. Do not repeat anything listed under Ruled out or Dead ends unless new evidence justifies it, and say what that evidence is.
 4. If none matches, create the case folder `docs/rca/<YYYYMMDD>-<slug>/` (date from `date +%Y%m%d`, slug of 2-5 kebab-case words naming the symptom, not a suspected cause) and its `README.md` from the template in `${CLAUDE_PLUGIN_ROOT}/skills/rca/references/log-template.md`. Fill Problem and Environment from what the user gave; mark gaps as unknown. Add the first timeline entry, `case opened`, with the timeline script (see Logging rules).
 5. Search the closed cases in `docs/rca/closed/` for prior art, and the other open ones too, through an agent (see Agents): it greps them for the exact error text, the components involved and key symptoms, and returns the matching cases with their Root cause, Insights and Dead ends. This is the one agent allowed to read `docs/rca/`. Carry over what applies: as a Known fact if it still verifiably holds, otherwise as a hypothesis. Cite the earlier log either way.
 6. Tell the user the log path.
@@ -47,6 +49,20 @@ Loop until a hypothesis passes the confirmation gate (section 3):
 5. **Go deeper.** A confirmed cause that is itself explained by something else is not the root. Keep asking why, typically down this ladder: the immediate cause (the failing operation), the mechanism in the code or config, the system condition that enabled it, the design decision behind that, and finally why the process let it ship unnoticed (no test, no alert, no review of that path). Stop when the next answer is outside the system's control or is a deliberate decision. Five levels is typical, not a rule, and every level needs the same evidence as the first.
 
 A hypothesis is in one of four states: `open` (untested), `supported` (evidence is consistent with it, but no test that could have disproved it has passed yet), `confirmed` (passed the gate), `rejected`. Evidence that merely fits makes a hypothesis `supported`, never `confirmed`.
+
+### Pausing
+
+An investigation can reach a point where the root cause is still unconfirmed but further work has no practical leverage. Before each new round, check whether that point is reached:
+
+- **Same fix either way:** every remaining candidate is addressed by the same changes, so no answer would change what gets done.
+- **Out of reach:** the evidence needed to settle the remaining questions requires something that will not be done, such as a change in production, or access or data the user cannot provide.
+
+If either holds, do not stop on your own: an investigator talking itself out of the remaining work is the failure this skill guards against. Propose the pause to the user with the AskUserQuestion tool, saying which questions remain, why answering them would not change the fix or cannot be done, and what would change that. On the user's agreement:
+
+1. Record each remaining question in Open questions with why it stays open and what evidence would reopen it.
+2. Root cause says plainly that it is not confirmed, and lists the remaining candidates with their states. Never present a paused case's leading hypothesis as the cause.
+3. Fix lists the changes, says they were chosen without a confirmed cause, and gives a prediction for each: what should change after it ships (an error rate, a metric, a log line) if it addresses the problem. A failed prediction reopens the case.
+4. Set `Status: paused`. The case folder stays directly under `docs/rca/`; resuming it sets `Status: open` again.
 
 ### Asking the user
 
