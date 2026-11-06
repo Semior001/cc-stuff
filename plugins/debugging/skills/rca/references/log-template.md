@@ -2,7 +2,6 @@
 
 Status: open
 Started: <YYYY-MM-DD>
-Updated: <YYYY-MM-DD HH:MM>
 
 ## Problem
 
@@ -77,6 +76,4 @@ Proposed or applied fix, how it was verified, follow-ups.
 
 ## Timeline
 
-Append-only, oldest first.
-
-- <YYYY-MM-DD HH:MM> <action> -> <outcome>
+Append-only, oldest first, always the last section. Entries are added only by append-timeline.sh.

@@ -1,7 +1,7 @@
 {
   "name": "debugging",
   "description": "Root cause analysis with a persistent investigation log in docs/rca/, and regression bisecting",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "author": {
     "name": "Semior001"
   },

@@ -2,6 +2,15 @@
 
 Entries are per plugin, headed `## <plugin> v<version> - YYYY-MM-DD`, grouped into New Features, Improvements, Bug Fixes, Other.
 
+## debugging v0.1.4 - 2026-11-06
+
+### Bug Fixes
+
+- `rca` timeline entries were written with Edit anchored on an arbitrary line, which overwrote earlier entries. Entries are now appended only by `scripts/append-timeline.sh`, which writes to the end of the log, adds the timestamp, and refuses when any heading, of any level, follows Timeline
+- `rca` never issues two writes to the log in the same message, so a parallel Edit cannot drop a timeline entry
+- `rca` processes one agent report fully, including its `processed` entry, before opening the next
+- `rca` log no longer has an `Updated:` field that went stale; the last timeline entry shows when the log last changed
+
 ## debugging v0.1.3 - 2026-11-05
 
 ### Improvements

@@ -28,7 +28,7 @@ Everything under `docs/rca/` is private to the people and agents working on the 
 1. Make sure `docs/rca/.gitignore` exists and contains `*`; create it if not. Then check `git ls-files docs/rca`: if it lists anything, those files were committed before and the ignore file does not hide them. Tell the user which files are tracked and leave untracking them to the user; do not run `git rm` yourself.
 2. List the case folders directly under `docs/rca/` (not `closed/`): those are the investigations in progress.
 3. If one matches the problem, read its `README.md` fully and continue from it. Then check `<case>/agents/` for reports the timeline does not mark as processed, and process them (see Agents) before anything else: they hold results that arrived after the last log update. Do not repeat anything listed under Ruled out or Dead ends unless new evidence justifies it, and say what that evidence is.
-4. If none matches, create the case folder `docs/rca/<YYYYMMDD>-<slug>/` (date from `date +%Y%m%d`, slug of 2-5 kebab-case words naming the symptom, not a suspected cause) and its `README.md` from the template in `${CLAUDE_PLUGIN_ROOT}/skills/rca/references/log-template.md`. Fill Problem and Environment from what the user gave; mark gaps as unknown.
+4. If none matches, create the case folder `docs/rca/<YYYYMMDD>-<slug>/` (date from `date +%Y%m%d`, slug of 2-5 kebab-case words naming the symptom, not a suspected cause) and its `README.md` from the template in `${CLAUDE_PLUGIN_ROOT}/skills/rca/references/log-template.md`. Fill Problem and Environment from what the user gave; mark gaps as unknown. Add the first timeline entry, `case opened`, with the timeline script (see Logging rules).
 5. Search the closed cases in `docs/rca/closed/` for prior art, and the other open ones too, through an agent (see Agents): it greps them for the exact error text, the components involved and key symptoms, and returns the matching cases with their Root cause, Insights and Dead ends. This is the one agent allowed to read `docs/rca/`. Carry over what applies: as a Known fact if it still verifiably holds, otherwise as a hypothesis. Cite the earlier log either way.
 6. Tell the user the log path.
 
@@ -89,7 +89,8 @@ Rules:
 5. **Every task is saved to a file, before and after.** Results that exist only in the conversation are lost on compaction, and agents may finish after it. So:
    - Before spawning, the main session writes the brief to `<case>/agents/<YYYYMMDD-HHMM>-<task-slug>.md` under a `## Brief` heading, and adds a timeline entry `dispatched <task-slug> -> agents/<file>`.
    - The brief tells the agent to append its report to that file under a `## Report` heading before returning. A task file without `## Report` is a task that never finished: rerun it or record it as a dead end.
-   - Once a report has been processed (rule 6 and the log updated), add a timeline entry `processed <task-slug>: <verdict>`. A report without that entry is unprocessed, and resuming picks it up.
+   - Once a report has been processed (rule 7 and the log updated), add a timeline entry `processed <task-slug>: <verdict>`. A report without that entry is unprocessed, and resuming picks it up.
+   - Process one report at a time: every log section it touches, then its `processed` entry, before opening the next report, even when several agents finished together.
 6. **Agents do not edit the log.** The main session is its only writer, so parallel agents never overwrite each other; each agent writes only its own task file and evidence files.
 7. **Agent results are claims.** Before moving a hypothesis to `rejected` or counting a link as verified, re-read the key evidence the agent cites: only the cited lines and output, a few per report. When checking a report needs more than that, dispatch a verification agent instead of investigating in the main session. An agent's verdict carries no more weight than its evidence. An `inconclusive` result goes into Open questions with what blocked it.
 
@@ -125,13 +126,14 @@ Until the gate passes, never tell the user "the cause is X". Report the leading 
 
 Write to the log immediately after every finding: a new fact, a hypothesis formed or changing state, a dead end, an insight, a new question. Never batch several findings into one write at the end.
 
-- **State sections** (Problem through Fix) describe what is known now: rewrite them as knowledge changes. Bump `Updated:`.
-- **Timeline** is append-only: one line per action with its outcome, `date '+%Y-%m-%d %H:%M'` as the timestamp.
+- **State sections** (Problem through Fix) describe what is known now: rewrite them as knowledge changes.
+- **Timeline** is append-only and stays the last section of the log. Add to it only with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/append-timeline.sh <case>/README.md "<action> -> <outcome>"`, one call per entry. The script appends to the end of the file and adds the timestamp, so no earlier entry can be overwritten. Never write timeline entries with Edit or Write, and never put two entries in one call. Nothing goes below Timeline: new hypotheses, facts and other sections go in their own sections above it. If the script refuses, fix the log structure (Timeline must be last) and retry; do not work around it. The last entry's timestamp is when the log was last updated.
 - **Facts vs assumptions.** Known facts holds only what was verified, each with its evidence (`file:line`, the command and the relevant part of its output, a log line). Anything unverified is a hypothesis or an open question.
 - **Rejected hypotheses move to Ruled out** with the evidence that rejected them. Never delete them: they keep the next session from retrying them.
 - **Dead ends** are approaches that failed, not wrong suspects: a repro that did not trigger, a tool that did not help, a fix attempt that did not work. Record why.
 - **Insights** are what was learned about the system that holds beyond this bug: a hidden coupling, a misleading name, an undocumented behavior.
 - **Large evidence goes to files.** Output longer than about 20 lines (stack dumps, full test runs, profiles, bisect logs) is saved under `<case>/evidence/`, named for what it holds (`error-counts.txt`, `bisect.log`). The log links the file and quotes only the relevant lines, so it stays cheap to re-read.
+- **One write to the log at a time.** Never issue two tool calls that write the log in the same message (an Edit and a timeline append, or two Edits): an Edit that reads the file before a parallel write lands and writes after it silently drops that write.
 - Keep entries short and concrete. Quote exact error text; do not paraphrase it.
 
 ## 5. Conclude
