@@ -2,6 +2,20 @@
 
 Entries are per plugin, headed `## <plugin> v<version> - YYYY-MM-DD`, grouped into New Features, Improvements, Bug Fixes, Other.
 
+## debugging v0.1.7 - 2026-11-10
+
+### New Features
+
+- `rca` `verifying` status for a fix that is deployed but whose outcome is not yet observed. Its Verification section records what was deployed, the prediction with the value before, the observation window and why, where to look, who checks, and what reopens the case. A case is never resolved on the deploy alone, nor because the outcome cannot be observed; a failed prediction sets it back to `open`. The compaction reminder lists verifying cases along with open ones
+- `rca` log template gets an optional Observability section for dashboards, panel IDs, URL patterns and the metric and log queries used, filled by an agent at case open for running services
+
+### Improvements
+
+- `rca` confirmation gate states that a confirmed mechanism does not show that a fix works: that needs its own evidence after the fix ships
+- `rca` asks which dashboards or metrics the reporter checked, over what window, and what they showed, before skipping hypotheses on their word
+- `rca` pause check runs after a round's reports are processed and before the next hypotheses are formed, so pausing is weighed before new work is invested in the next round
+- `rca` explains the "main session checks nothing" rule by durability: what is read in the main session, and the reasoning around it, is lost on compaction, while agent task files persist
+
 ## debugging v0.1.6 - 2026-11-06
 
 ### New Features

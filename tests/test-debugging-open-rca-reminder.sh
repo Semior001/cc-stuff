@@ -32,21 +32,24 @@ printf '# RCA: b\n\nStatus: resolved\n' > "$tmp/closed/docs/rca/20260102-b/READM
 printf '# RCA: c\n\nStatus: abandoned\n\nnote: Status: open was the old value\n' > "$tmp/closed/docs/rca/20260103-c/README.md"
 check "closed cases print nothing" "" "$(run "$tmp/closed")"
 
-# open cases are listed relative to the project root; evidence files and loose files are not
-mkdir -p "$tmp/open/docs/rca/20260104-d/evidence" "$tmp/open/docs/rca/20260105-e" "$tmp/open/docs/rca/20260106-f"
+# open and verifying cases are listed relative to the project root; evidence files and loose files are not
+mkdir -p "$tmp/open/docs/rca/20260104-d/evidence" "$tmp/open/docs/rca/20260105-e" "$tmp/open/docs/rca/20260106-f" "$tmp/open/docs/rca/20260108-g" "$tmp/open/docs/rca/20260109-h"
 printf '# RCA: d\n\nStatus: open\n' > "$tmp/open/docs/rca/20260104-d/README.md"
 printf 'Status: open\n' > "$tmp/open/docs/rca/20260104-d/evidence/README.md"
 printf '# RCA: e\n\nStatus: resolved\n' > "$tmp/open/docs/rca/20260105-e/README.md"
 printf '# RCA: f\n\nStatus: open\n' > "$tmp/open/docs/rca/20260106-f/README.md"
 printf 'Status: open\n' > "$tmp/open/docs/rca/20260107-loose.md"
+printf '# RCA: g\n\nStatus: verifying\n' > "$tmp/open/docs/rca/20260108-g/README.md"
+printf '# RCA: h\n\nStatus: paused\n' > "$tmp/open/docs/rca/20260109-h/README.md"
 out="$(run "$tmp/open")"
-check "lists open cases" "- docs/rca/20260104-d/README.md
-- docs/rca/20260106-f/README.md" "$(grep '^- ' <<<"$out")"
+check "lists open and verifying cases" "- docs/rca/20260104-d/README.md
+- docs/rca/20260106-f/README.md
+- docs/rca/20260108-g/README.md" "$(grep '^- ' <<<"$out")"
 check "mentions compaction" "1" "$(grep -c 'Context was compacted' <<<"$out")"
 
 # falls back to the working directory without CLAUDE_PROJECT_DIR
 out="$(cd "$tmp/open" && env -u CLAUDE_PROJECT_DIR bash "$script" | grep -c '^- ')"
-check "falls back to working directory" "2" "$out"
+check "falls back to working directory" "3" "$out"
 
 if [[ $fails -gt 0 ]]; then
     echo "$fails test(s) failed"

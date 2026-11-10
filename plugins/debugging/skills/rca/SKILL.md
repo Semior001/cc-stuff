@@ -11,7 +11,7 @@ Each investigation is one folder, so everything about a case stays together and 
 
 ```
 docs/rca/
-  20261105-export-context-canceled/   # open or paused
+  20261105-export-context-canceled/   # open, paused or verifying
     README.md                         # the log
     evidence/                         # outputs too long for the log
     agents/                           # one file per agent task: brief and report
@@ -23,36 +23,36 @@ The log is `README.md` so that it is the first thing seen when the folder is ope
 
 Everything under `docs/rca/` is private to the people and agents working on the project and never enters version control. A `docs/rca/.gitignore` containing the single line `*` ignores the whole folder, itself included, without touching the project's own `.gitignore`.
 
-A case is in one of four states, given by the `Status:` line of its log: `open` (being investigated), `paused` (stopped with the user's agreement, see Pausing), `resolved` (root cause confirmed), `abandoned` (stopped by the user without a conclusion). Open and paused cases sit directly under `docs/rca/`, resolved and abandoned ones under `docs/rca/closed/`.
+A case is in one of five states, given by the `Status:` line of its log: `open` (being investigated), `paused` (stopped with the user's agreement, see Pausing), `verifying` (a fix is deployed and its predicted outcome not yet observed, see Verifying a deployed fix), `resolved` (root cause confirmed, and any deployed fix observed to work), `abandoned` (stopped by the user without a conclusion). Open, paused and verifying cases sit directly under `docs/rca/`, resolved and abandoned ones under `docs/rca/closed/`.
 
 ## 1. Start or resume
 
 1. Make sure `docs/rca/.gitignore` exists and contains `*`; create it if not. Then check `git ls-files docs/rca`: if it lists anything, those files were committed before and the ignore file does not hide them. Tell the user which files are tracked and leave untracking them to the user; do not run `git rm` yourself.
-2. List the case folders directly under `docs/rca/` (not `closed/`): those are the open and paused investigations.
-3. If one matches the problem, read its `README.md` fully and continue from it; a paused case gets `Status: open` again, with the new evidence or reason for resuming as a timeline entry. Then check `<case>/agents/` for reports the timeline does not mark as processed, and process them (see Agents) before anything else: they hold results that arrived after the last log update. Do not repeat anything listed under Ruled out or Dead ends unless new evidence justifies it, and say what that evidence is.
-4. If none matches, create the case folder `docs/rca/<YYYYMMDD>-<slug>/` (date from `date +%Y%m%d`, slug of 2-5 kebab-case words naming the symptom, not a suspected cause) and its `README.md` from the template in `${CLAUDE_PLUGIN_ROOT}/skills/rca/references/log-template.md`. Fill Problem and Environment from what the user gave; mark gaps as unknown. Add the first timeline entry, `case opened`, with the timeline script (see Logging rules).
+2. List the case folders directly under `docs/rca/` (not `closed/`): those are the open, paused and verifying investigations.
+3. If one matches the problem, read its `README.md` fully and continue from it; a paused case gets `Status: open` again, with the new evidence or reason for resuming as a timeline entry. A verifying case continues with its Verification section (see Verifying a deployed fix). Then check `<case>/agents/` for reports the timeline does not mark as processed, and process them (see Agents) before anything else: they hold results that arrived after the last log update. Do not repeat anything listed under Ruled out or Dead ends unless new evidence justifies it, and say what that evidence is.
+4. If none matches, create the case folder `docs/rca/<YYYYMMDD>-<slug>/` (date from `date +%Y%m%d`, slug of 2-5 kebab-case words naming the symptom, not a suspected cause) and its `README.md` from the template in `${CLAUDE_PLUGIN_ROOT}/skills/rca/references/log-template.md`. Fill Problem and Environment from what the user gave; mark gaps as unknown. If the problem is in a running service, one of the first agent tasks finds where its metrics, dashboards and logs live and how to link to them; record that under Observability, so no later session derives it again. Add the first timeline entry, `case opened`, with the timeline script (see Logging rules).
 5. Search the closed cases in `docs/rca/closed/` for prior art, and the other open ones too, through an agent (see Agents): it greps them for the exact error text, the components involved and key symptoms, and returns the matching cases with their Root cause, Insights and Dead ends. This is the one agent allowed to read `docs/rca/`. Carry over what applies: as a Known fact if it still verifiably holds, otherwise as a hypothesis. Cite the earlier log either way.
 6. Tell the user the log path.
 
 ## 2. Investigate
 
-The main session orchestrates and agents investigate. The main session frames the problem, forms hypotheses, writes briefs, processes reports, keeps the log, talks to the user and runs the confirmation gate. It does not check anything itself: no reading code or library source, no grepping logs, no running tests, builds or bisects, not even a "quick look". Each of those fills the main context with output that is needed once, and a context that fills up gets compacted and loses the thread. Every check, however small, is an agent task (see Agents). The main session reads only the case log, agent task files and the few lines an agent cites as key evidence (Agents, rule 7).
+The main session orchestrates and agents investigate. The main session frames the problem, forms hypotheses, writes briefs, processes reports, keeps the log, talks to the user and runs the confirmation gate. It does not check anything itself: no reading code or library source, no grepping logs, no running tests, builds or bisects, not even a "quick look". The reason is durability, not context budget. Output read in the main session is lost on compaction, and what is lost is not just the data but the reasoning around it: why the check was done, what it was meant to disprove, what it ruled out. An agent task file holds the brief and the report and survives any number of compactions and sessions. Every check, however small, is an agent task (see Agents). The main session reads only the case log, agent task files and the few lines an agent cites as key evidence (Agents, rule 7).
 
 Loop until a hypothesis passes the confirmation gate (section 3):
 
 1. **Gather facts, through agents.** The first round of agents reads the code, logs, configs and history (`git log`, `git blame`, `git log -S '<code>'` to find when a line appeared). Reproduce the problem if at all possible. Pin down the shape of the symptom before explaining it: continuous or episodic, since when, how often, on which instances and which not, which component reports it and in which direction (inbound or outbound, caller or callee), and whether anything restarted, deployed or changed around its start. These are facts to log, and every later hypothesis must fit them. When the problem is a regression and a good revision is known, an agent following `${CLAUDE_PLUGIN_ROOT}/skills/bisect/SKILL.md` finds the commit that introduced it.
-2. **Form hypotheses.** First, account for what the reporter has already ruled out. Someone escalating a problem has usually looked at the obvious: what they can see in their own tools (restart counts, their recent deploys, dashboards, the error itself), and the way they describe it is evidence too. "Still failing" from the person who owns the service is different from "it keeps crashing". A cause the reporter could have confirmed in seconds is not a leading candidate: give its quick check to an agent alongside the real tests, or put it last. Log what the reporter checked under Problem.
+2. **Form hypotheses.** First, account for what the reporter has already ruled out. Someone escalating a problem has usually looked at the obvious: what they can see in their own tools (restart counts, their recent deploys, dashboards, the error itself), and the way they describe it is evidence too. "Still failing" from the person who owns the service is different from "it keeps crashing". A cause the reporter could have confirmed in seconds is not a leading candidate: give its quick check to an agent alongside the real tests, or put it last. A claim like "the broker is healthy" is only as strong as what it rests on: find out which dashboards or metrics the reporter looked at, over what time window, and what they showed. Broker latency looking fine says nothing about the rate of refused writes. If the report does not say and it decides which hypotheses to skip, ask the user. Log what the reporter checked under Problem.
 
    Then form at least two competing hypotheses before testing any: a single hypothesis is a conclusion in disguise. Draw them from more than one area: the code itself, configuration and environment differences, architecture and design limits (coupling, capacity, scaling), external dependencies (other services, libraries, network), and process (deploy order, missing validation). Each states what must be true if it is the cause, what would prove it wrong, and how to check that cheaply.
 3. **Test, through agents.** One test per hypothesis at a time, designed so it can fail; prefer tests that eliminate the most hypotheses. Tests of different hypotheses that are independent run as parallel agents in one round.
-4. **Log it** (see section 4): process each report and update the log before dispatching the next round.
+4. **Log it** (see section 4): process each report and update the log before dispatching the next round. Then, before forming any new hypothesis, run the pause check (see Pausing).
 5. **Go deeper.** A confirmed cause that is itself explained by something else is not the root. Keep asking why, typically down this ladder: the immediate cause (the failing operation), the mechanism in the code or config, the system condition that enabled it, the design decision behind that, and finally why the process let it ship unnoticed (no test, no alert, no review of that path). Stop when the next answer is outside the system's control or is a deliberate decision. Five levels is typical, not a rule, and every level needs the same evidence as the first.
 
 A hypothesis is in one of four states: `open` (untested), `supported` (evidence is consistent with it, but no test that could have disproved it has passed yet), `confirmed` (passed the gate), `rejected`. Evidence that merely fits makes a hypothesis `supported`, never `confirmed`.
 
 ### Pausing
 
-An investigation can reach a point where the root cause is still unconfirmed but further work has no practical leverage. Before each new round, check whether that point is reached:
+An investigation can reach a point where the root cause is still unconfirmed but further work has no practical leverage. Check whether that point is reached after processing a round's reports and before forming the next hypotheses. Once the next hypotheses are written out, the work that went into them makes pausing feel like dropping a lead instead of a neutral choice. The question is: given what was just learned, would any answer to a remaining question change the fix? The point is reached when either of these holds:
 
 - **Same fix either way:** every remaining candidate is addressed by the same changes, so no answer would change what gets done.
 - **Out of reach:** the evidence needed to settle the remaining questions requires something that will not be done, such as a change in production, or access or data the user cannot provide.
@@ -61,7 +61,7 @@ If either holds, do not stop on your own: an investigator talking itself out of 
 
 1. Record each remaining question in Open questions with why it stays open and what evidence would reopen it.
 2. Root cause says plainly that it is not confirmed, and lists the remaining candidates with their states. Never present a paused case's leading hypothesis as the cause.
-3. Prepare fix options as in section 5, marked as chosen without a confirmed cause, each with a prediction: what should change after it ships (an error rate, a metric, a log line) if it addresses the problem. A failed prediction reopens the case.
+3. Prepare fix options as in section 5, marked as chosen without a confirmed cause, each with a prediction: what should change after it ships (an error rate, a metric, a log line) if it addresses the problem. A failed prediction reopens the case. Once a fix ships, the case is `verifying` (see Verifying a deployed fix).
 4. Set `Status: paused`. The case folder stays directly under `docs/rca/`; resuming it sets `Status: open` again.
 
 ### Asking the user
@@ -124,7 +124,7 @@ The most common failure of an investigation is stopping at the first explanation
 
 Traps that do not count as confirmation:
 
-- A fix that makes the symptom disappear. It may mask the cause or change timing; it confirms nothing until the mechanism is shown.
+- A fix that makes the symptom disappear. It may mask the cause or change timing; it confirms nothing until the mechanism is shown. The reverse holds too: a confirmed mechanism does not show that a fix works. That needs its own evidence, observed after the fix ships (see Verifying a deployed fix).
 - A single passing run of an intermittent problem.
 - "This code looks wrong." Wrong-looking code that is not on the failing path, or whose effect was not observed, is a suspect, not a cause.
 - Matching a known pattern or an earlier RCA. Prior art gives a hypothesis, not a conclusion.
@@ -142,7 +142,7 @@ Until the gate passes, never tell the user "the cause is X". Report the leading 
 
 Write to the log immediately after every finding: a new fact, a hypothesis formed or changing state, a dead end, an insight, a new question. Never batch several findings into one write at the end.
 
-- **State sections** (Problem through Prevention) describe what is known now: rewrite them as knowledge changes.
+- **State sections** (Problem through Verification) describe what is known now: rewrite them as knowledge changes.
 - **Timeline** is append-only and stays the last section of the log. Add to it only with `bash ${CLAUDE_PLUGIN_ROOT}/scripts/append-timeline.sh <case>/README.md "<action> -> <outcome>"`, one call per entry. The script appends to the end of the file and adds the timestamp, so no earlier entry can be overwritten. Never write timeline entries with Edit or Write, and never put two entries in one call. Nothing goes below Timeline: new hypotheses, facts and other sections go in their own sections above it. If the script refuses, fix the log structure (Timeline must be last) and retry; do not work around it. The last entry's timestamp is when the log was last updated.
 - **Facts vs assumptions.** Known facts holds only what was verified, each with its evidence (`file:line`, the command and the relevant part of its output, a log line). Anything unverified is a hypothesis or an open question.
 - **Rejected hypotheses move to Ruled out** with the evidence that rejected them. Never delete them: they keep the next session from retrying them.
@@ -174,13 +174,28 @@ Recommend one and say why. Present the options with the AskUserQuestion tool, th
 
 **Prevention.** From the deepest level of the cause chain, the process level, suggest what would have caught this earlier or stopped it shipping: a test, an alert, a validation, a review rule, a documentation fix. These are suggestions for the user, not changes to make.
 
+### Verifying a deployed fix
+
+Deploying a fix and seeing it work are two separate events. When a fix reaches an environment where its effect can only be seen through metrics or logs, as in production, and not through a reproduction run on the spot, the case is `verifying` from deploy until the outcome is observed. Never mark a case resolved on the strength of the deploy alone, and never because the outcome cannot be observed: a broken dashboard leaves the case in `verifying`, it does not let it close.
+
+When the user reports the fix as deployed, fill the log's Verification section and set `Status: verifying`:
+
+1. **What was deployed:** the change, where, when, and by whom.
+2. **Prediction:** the metric, log line or error count that proves it worked, its value before the deploy, and the value or change expected after. Use the prediction from the fix option; sharpen it if it is vague.
+3. **Window:** how long to observe before the outcome counts, and why that long. An episodic symptom needs a window covering several of its usual occurrences, and a load-dependent one covers a peak.
+4. **Where to look:** the dashboard panel, query or log search from Observability, as a link.
+5. **Who checks and when:** the user, or an agent with read-only access the user grants in that session.
+6. **Reopens if:** the observation that counts as failure: the symptom recurs, the metric does not move, or it moves less than predicted.
+
+When the window has passed, an agent reads the outcome (production access only with the user's permission in this session) and its report is processed like any other. If the prediction held, record the observation under Verification and continue in section 6: a case with a confirmed cause is resolved, a paused case returns to `paused` with the fix's outcome recorded and its open questions left as they are. If it failed, set `Status: open` and log the failure as a Known fact. A fix that did not work means the cause chain has a gap or the fix broke the wrong link.
+
 ## 6. Conclude
 
 When a hypothesis passes the confirmation gate:
 
 1. Fill Root cause with the chain from symptom to fundamental cause, evidence at every step, and the Confirmation checklist with the evidence for each point.
 2. Present the root cause, its evidence and the checklist to the user, and ask them to accept it. Any doubt they raise goes back into the investigation loop as an open question; the log stays `open` until they accept.
-3. Prepare fix options and prevention suggestions (section 5). If the user picks an option and asks to apply it, apply it outside production, verify it against the original reproduction, and record how it was verified.
+3. Prepare fix options and prevention suggestions (section 5). If the user picks an option and asks to apply it, apply it outside production, verify it against the original reproduction, and record how it was verified. If the user deploys it where its outcome can only be observed over time, the case is `verifying` until that outcome is seen (see Verifying a deployed fix); continue with the next steps only after the prediction held.
 4. Remove temporary instrumentation and note it in the timeline.
 5. Set `Status: resolved`. If the user stops the investigation without a conclusion, set `Status: abandoned` and make sure Open questions says where to pick up. Either way, move the case folder into `docs/rca/closed/` (`mkdir -p` it first). Resuming an abandoned case moves it back and sets `Status: open`.
 6. Report to the user: the root cause in one or two sentences, the fix chosen or the options with the recommendation, the prevention suggestions, and the log path.

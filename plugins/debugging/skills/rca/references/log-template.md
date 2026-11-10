@@ -10,11 +10,19 @@ Started: <YYYY-MM-DD>
 - **Impact:** who or what is affected, how often
 - **Reproduction:** steps, or "not reproduced yet"
 - **Reported by:** who, where, in their own words
-- **Already checked by the reporter:** what they ruled out or could trivially see, stated or implied by how they framed it
+- **Already checked by the reporter:** what they ruled out or could trivially see, stated or implied by how they framed it; which dashboards or metrics they looked at, over what time window, and what those showed
 
 ## Environment
 
 Versions, commit, configuration, platform. Where it happens and where it does not.
+
+## Observability
+
+Optional, for running services. Where the evidence lives and how to link to it, so no later session derives it again.
+
+- **Dashboards:** host, dashboard IDs, panel IDs for the key metrics, URL pattern (time range, variables)
+- **Metrics:** names and the queries used
+- **Logs:** where they are and the queries used
 
 ## Known facts
 
@@ -92,6 +100,18 @@ Chosen option, how it was applied and verified, follow-ups.
 ## Prevention
 
 What would have caught this earlier or stopped it shipping: a test, an alert, a validation, a review rule, a documentation fix.
+
+## Verification
+
+Filled when a fix is deployed where its outcome can only be observed over time. The case stays `verifying` until the outcome is observed.
+
+- **Deployed:** the change, where, when, by whom
+- **Prediction:** metric or log line, its value before, the value or change expected after
+- **Window:** how long to observe, and why that long
+- **Where to look:** dashboard panel, query or log search, as a link
+- **Who checks and when:**
+- **Reopens if:** the observation that counts as failure
+- **Outcome:** pending | held: <observation, evidence> | failed: <observation, evidence>
 
 ## Timeline
 
